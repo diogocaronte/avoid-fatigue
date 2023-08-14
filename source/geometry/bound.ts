@@ -2,6 +2,10 @@ import Point from './point';
 import Range from './range';
 
 export default class Bound {
+    readonly left = null as Bound | null;
+    readonly right = null as Bound | null;
+    readonly isSubdivided: boolean = false;
+
     min: Point;
     max: Point;
     points: Readonly<Point[]>;
@@ -10,6 +14,39 @@ export default class Bound {
         this.min = min;
         this.max = max;
         this.points = [min, max];
+    }
+
+    inOrderTraverse(callback = (bound: Bound) => {}) {
+        if (!this.isSubdivided) {
+            callback(this);
+            return;
+        }
+
+        (<Bound>this.left).inOrderTraverse(callback);
+        callback(this);
+        (<Bound>this.right).inOrderTraverse(callback);
+    }
+
+    subdivideHorizontally(normalizedPercentage = 0.5) {
+        const height = this.max.y - this.min.y;
+        const splitY = this.min.y + height * normalizedPercentage;
+
+        (<any>this).left = new Bound(new Point(this.min.x, this.min.y), new Point(this.max.x, splitY));
+        (<any>this).right = new Bound(new Point(this.min.x, splitY), new Point(this.max.x, this.max.y));
+
+        (<any>this).isSubdivided = true;
+        return this;
+    }
+
+    subdivideVertically(normalizedPercentage = 0.5) {
+        const width = this.max.x - this.min.x;
+        const splitX = this.min.x + width * normalizedPercentage;
+
+        (<any>this).left = new Bound(new Point(this.min.x, this.min.y), new Point(splitX, this.max.y));
+        (<any>this).right = new Bound(new Point(splitX, this.min.y), new Point(this.max.x, this.max.y));
+
+        (<any>this).isSubdivided = true;
+        return this;
     }
 
     toXRange() {

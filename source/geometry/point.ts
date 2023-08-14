@@ -25,6 +25,10 @@ export default class Point {
         return dist;
     }
 
+    dot(point: Point) {
+        return this.x * point.x + this.y * point.y;
+    }
+
     rotate(radians: number) {
         const cosAngle = Math.cos(radians);
         const sinAngle = Math.sin(radians);

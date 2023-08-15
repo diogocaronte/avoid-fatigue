@@ -13,18 +13,21 @@ export const DEFAULT_OPTIONS = {};
 export const SECTOR_VERSION = Symbol('sector Version');
 
 export default class App {
-    events = {
+    readonly timer: Timer;
+
+    readonly events = {
+        update: new Set<CallableFunction>(),
         destroy: new Set<CallableFunction>(),
     };
 
-    universe: Universe;
-    camera: Camera;
-    screen: Screen;
-    mouseRectangle: Rectangle;
-    cache: Cache<any>;
+    readonly universe: Universe;
+    readonly camera: Camera;
+    readonly screen: Screen;
+    readonly mouseRectangle: Rectangle;
+    readonly cache: Cache<any>;
 
-    mouseProjectedCache = Symbol('mouseProjected');
-    classifiedSectorCache = Symbol('classified sector');
+    private mouseProjectedCache = Symbol('mouseProjected');
+    private classifiedSectorCache = Symbol('classified sector');
 
     private mouse: ListenMouseReturn | null = null;
     private initialized: boolean = false;
@@ -32,7 +35,6 @@ export default class App {
     private requestID: number = -1;
 
     private options: AppOptions;
-    private timer: Timer;
     private rememberCamera: Point | null = null;
 
     constructor(options: Partial<AppOptions> = {}) {
@@ -55,7 +57,7 @@ export default class App {
         this.mouseRectangle = new Rectangle(new Point(0, 0), new Point(10, 10));
     }
 
-    private getMouseProjected(): MouseProjected {
+    public getMouseProjected(): MouseProjected {
         const cached = this.cache.get(this.mouseProjectedCache);
         if (cached) return cached.value;
 
@@ -69,7 +71,7 @@ export default class App {
         return projected;
     }
 
-    private getClassifiedSectors(): ClassifiedSectors {
+    public getClassifiedSectors(): ClassifiedSectors {
         const cached = this.cache.get(this.classifiedSectorCache);
         if (cached) return cached.value;
 
@@ -126,6 +128,8 @@ export default class App {
 
         const classified = this.getClassifiedSectors();
         classified.outsideView.forEach((sectorEntry) => this.universe.sectors.delete(sectorEntry[0]));
+
+        this.events.update.forEach((callback) => callback());
     }
 
     public initialize() {

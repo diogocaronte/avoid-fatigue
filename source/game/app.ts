@@ -1,4 +1,5 @@
 import merge from 'ts-deepmerge';
+import Circle from '../geometry/circle';
 import Point from '../geometry/point';
 import Rectangle from '../geometry/rectangle';
 import { ListenMouseReturn, clientPointToCanvas, listenMouse } from '../utils';
@@ -88,11 +89,12 @@ export default class App {
     }
 
     private render() {
-        this.screen.clear();
+        this.screen.fill('black');
 
         this.camera.run((context) => {
             this.universe.getSectorsOrCreateInBoundary().forEach(([_, sector]) => {
-                this.screen.renderBound(sector.bound, sector.color);
+                sector.asteroids.forEach((asteroid) => this.screen.renderFilledCircle(asteroid as Circle, 'saddlebrown'));
+                sector.planets.forEach((planet) => this.screen.renderFilledCircle(planet as Circle, 'gray'));
             });
 
             this.screen.renderRect(this.mouseRectangle, 'red');

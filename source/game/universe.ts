@@ -3,26 +3,34 @@ import Bound from '../geometry/bound';
 import Grid from '../geometry/grid';
 import Point from '../geometry/point';
 import Cache from '../utils/cache';
+import Noise from '../utils/noise';
 import Camera from './camera';
 import Sector from './sector';
+import UniverseDevStrategy, { UniverseGenerationStrategy } from './universe-dev-strategy';
 
 const DEFAULT_OPTIONS = {
     sectorSize: 100,
     cache: new Cache<any>(),
     camera: new Camera(),
+    seed: 1,
+    strategy: new UniverseDevStrategy() as UniverseGenerationStrategy,
 } as const;
 
 export type UniverseOptions = typeof DEFAULT_OPTIONS;
 
 export default class Universe {
     readonly sectors: Grid<Sector>;
+    readonly options: Readonly<UniverseOptions>;
+    readonly random: Noise;
 
-    private options: UniverseOptions;
     private boundaryCache = Symbol('boundary');
+    private strategy: UniverseGenerationStrategy;
 
     constructor(options: Partial<UniverseOptions> = {}) {
         this.options = merge({}, DEFAULT_OPTIONS, options) as UniverseOptions;
         this.sectors = new Grid<Sector>();
+        this.strategy = this.options.strategy;
+        this.random = new Noise(this.options.seed);
     }
 
     public getSectorsOrCreateInBoundary(boundary = this.getViewSectorBound()): [Point, Sector][] {
@@ -57,11 +65,7 @@ export default class Universe {
         let sector = this.sectors.get(point);
         if (sector) return sector;
 
-        const sector_min = point.clone().mul(this.options.sectorSize);
-        const sector_max = sector_min.clone().add(this.options.sectorSize);
-        const sector_bound = new Bound(sector_min, sector_max);
-
-        sector = new Sector(sector_bound, (point.x + point.y) % 2 == 0 ? 'blue' : 'red');
+        sector = this.strategy.createSector(this, point);
         this.sectors.set(point, sector);
 
         return sector;

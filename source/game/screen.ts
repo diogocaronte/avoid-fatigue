@@ -25,6 +25,11 @@ export default class Screen {
         this.canvas.height = size.y;
     }
 
+    fill(color: string) {
+        this.context.fillStyle = color;
+        this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
     clear() {
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
@@ -41,6 +46,13 @@ export default class Screen {
         this.context.stroke();
     }
 
+    renderFilledCircle(circle: Circle, color: string) {
+        this.context.beginPath();
+        this.context.arc(circle.position.x, circle.position.y, circle.radius, 0, 2 * Math.PI);
+        this.context.fillStyle = color;
+        this.context.fill();
+    }
+
     renderLine(pointA: Point, pointB: Point, color: string) {
         this.context.beginPath();
         this.context.moveTo(pointA.x, pointA.y);
@@ -53,9 +65,9 @@ export default class Screen {
     renderBound(bound: Bound, color: string) {
         if (bound.isEmpty()) return;
 
-        const delta = bound.max.clone().subPoint(bound.min);
+        const size = bound.getSize();
 
         this.context.strokeStyle = color;
-        this.context.strokeRect(bound.min.x, bound.min.y, delta.x, delta.y);
+        this.context.strokeRect(bound.min.x, bound.min.y, size.x, size.y);
     }
 }

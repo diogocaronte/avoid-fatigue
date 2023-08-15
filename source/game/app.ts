@@ -1,5 +1,6 @@
 import merge from 'ts-deepmerge';
 import Point from '../geometry/point';
+import Circle from '../geometry/circle';
 import Rectangle from '../geometry/rectangle';
 import { ListenMouseReturn, clientPointToCanvas, listenMouse } from '../utils';
 import Cache from '../utils/cache';
@@ -100,6 +101,8 @@ export default class App {
             });
 
             this.screen.renderRect(this.mouseRectangle, 'red');
+
+            this.screen.renderGameObject(false);
         });
     }
 

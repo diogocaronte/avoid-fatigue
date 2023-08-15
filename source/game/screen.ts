@@ -2,6 +2,8 @@ import Bound from '../geometry/bound';
 import Circle from '../geometry/circle';
 import Point from '../geometry/point';
 import Rectangle from '../geometry/rectangle';
+import Spaceship from '../game/spaceship';
+import { listenKeyboard } from './keyboard';
 
 export default class Screen {
     public canvas: HTMLCanvasElement;
@@ -58,4 +60,20 @@ export default class Screen {
         this.context.strokeStyle = color;
         this.context.strokeRect(bound.min.x, bound.min.y, delta.x, delta.y);
     }
+
+    renderGameObject(isStatic?: boolean, sprite?: string) {
+
+        const spaceX = new Spaceship(this.context, 0, 0);
+
+        if(!sprite) {
+            spaceX.draw();
+        }
+
+        if(!isStatic) {
+
+        }
+    }
+
 }
+
+

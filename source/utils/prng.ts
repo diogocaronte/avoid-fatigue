@@ -4,7 +4,7 @@ export default class PRNG {
     private c: number;
     private m: number;
 
-    constructor(seed: number) {
+    constructor(seed: number = (Math.random() * Math.pow(2, 32)) | 0) {
         this.seed = seed;
         this.a = 1664525;
         this.c = 1013904223;

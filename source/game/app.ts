@@ -49,7 +49,6 @@ export default class App {
 
         this.universe = new Universe({
             cache: this.cache,
-            camera: this.camera,
         });
 
         this.timer = new Timer();
@@ -75,7 +74,10 @@ export default class App {
         const cached = this.cache.get(this.classifiedSectorCache);
         if (cached) return cached.value;
 
-        const insideView = this.universe.getSectorsOrCreateInBoundary();
+        const cameraBoundary = this.camera.getBoundary();
+        const cameraInSectorBoundary = this.universe.getWorldToSectorBound(cameraBoundary);
+        const insideView = this.universe.getSectorsOrCreateInBoundary(cameraInSectorBoundary);
+
         const version = this.cache.version;
         insideView.forEach((sectorEntry) => ((<any>sectorEntry[1])[SECTOR_VERSION] = version));
 
@@ -91,8 +93,10 @@ export default class App {
     private render() {
         this.screen.fill('black');
 
+        const classified = this.getClassifiedSectors();
+
         this.camera.run((context) => {
-            this.universe.getSectorsOrCreateInBoundary().forEach(([_, sector]) => {
+            classified.insideView.forEach(([_, sector]) => {
                 sector.asteroids.forEach((asteroid) => this.screen.renderFilledCircle(asteroid as Circle, 'saddlebrown'));
                 sector.planets.forEach((planet) => this.screen.renderFilledCircle(planet as Circle, 'gray'));
             });

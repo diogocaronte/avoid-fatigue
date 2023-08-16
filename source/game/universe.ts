@@ -4,14 +4,12 @@ import Grid from '../geometry/grid';
 import Point from '../geometry/point';
 import Cache from '../utils/cache';
 import Noise from '../utils/noise';
-import Camera from './camera';
 import Sector from './sector';
 import UniverseDevStrategy, { UniverseGenerationStrategy } from './universe-dev-strategy';
 
 const DEFAULT_OPTIONS = {
     sectorSize: 100,
     cache: new Cache<any>(),
-    camera: new Camera(),
     seed: 1,
     strategy: new UniverseDevStrategy() as UniverseGenerationStrategy,
 } as const;
@@ -23,7 +21,6 @@ export default class Universe {
     readonly options: Readonly<UniverseOptions>;
     readonly random: Noise;
 
-    private boundaryCache = Symbol('boundary');
     private strategy: UniverseGenerationStrategy;
 
     constructor(options: Partial<UniverseOptions> = {}) {
@@ -33,13 +30,13 @@ export default class Universe {
         this.random = new Noise(this.options.seed);
     }
 
-    public getSectorsOrCreateInBoundary(boundary = this.getViewSectorBound()): [Point, Sector][] {
+    public getSectorsOrCreateInBoundary(boundary: Bound): [Point, Sector][] {
         const cached = this.options.cache.get(boundary);
         if (cached) return cached.value;
 
         const list: [Point, Sector][] = [];
 
-        this.getViewSectorBound().forEach((x, y) => {
+        boundary.forEach((x, y) => {
             const sectorPos = new Point(x, y);
             const sector = this.getSectorOrCreate(sectorPos);
             list.push([sectorPos, sector]);
@@ -49,15 +46,14 @@ export default class Universe {
         return list;
     }
 
-    public getViewSectorBound(): Bound {
-        const cached = this.options.cache.get(this.boundaryCache);
+    public getWorldToSectorBound(boundary: Bound): Bound {
+        const cached = this.options.cache.get(boundary);
         if (cached) return cached.value;
 
-        const cameraBoundary = this.options.camera.getBoundary();
-        const sectorBoundary = cameraBoundary.clone();
+        const sectorBoundary = boundary.clone();
         sectorBoundary.points.forEach((point) => point.div(this.options.sectorSize));
 
-        this.options.cache.set(this.boundaryCache, sectorBoundary);
+        this.options.cache.set(boundary, sectorBoundary);
         return sectorBoundary;
     }
 

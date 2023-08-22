@@ -1,6 +1,6 @@
 import Point from './point';
 
-export default class Circle {
+export default class Circle implements ICircle {
     position: Point;
     radius: number;
 
@@ -8,4 +8,9 @@ export default class Circle {
         this.position = position;
         this.radius = radius;
     }
+}
+
+export interface ICircle {
+    position: Point;
+    radius: number;
 }

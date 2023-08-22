@@ -14,24 +14,22 @@ const DEFAULT_OPTIONS = {
 export type CameraOptions = typeof DEFAULT_OPTIONS;
 
 export default class Camera {
-    position: Point;
     zoom: number;
-    cache: Cache<any>;
 
-    private boundaryCache = Symbol('boundary');
+    readonly position: Point;
+    readonly cache: Cache<any>;
 
-    private canvas: HTMLCanvasElement;
-    private context: CanvasRenderingContext2D;
+    readonly boundaryCache = Symbol('boundary');
+    readonly screen: Screen;
 
     constructor(options: Partial<CameraOptions> = {}) {
         const mergedOptions = merge({}, DEFAULT_OPTIONS, options) as CameraOptions;
 
-        this.canvas = mergedOptions.screen.canvas;
-        this.context = mergedOptions.screen.context;
-
         this.position = mergedOptions.position;
         this.zoom = mergedOptions.zoom;
         this.cache = mergedOptions.cache;
+
+        this.screen = mergedOptions.screen;
     }
 
     getBoundary(): Bound {
@@ -40,11 +38,12 @@ export default class Camera {
 
         const boundary = new Bound();
         const point = new Point();
+        const size = new Point(this.screen.canvas.width, this.screen.canvas.height);
 
         boundary.expandTo(this.screenToWorld(point.set(0, 0)));
-        boundary.expandTo(this.screenToWorld(point.set(0, this.canvas.height)));
-        boundary.expandTo(this.screenToWorld(point.set(this.canvas.width, 0)));
-        boundary.expandTo(this.screenToWorld(point.set(this.canvas.width, this.canvas.height)));
+        boundary.expandTo(this.screenToWorld(point.set(0, size.y)));
+        boundary.expandTo(this.screenToWorld(point.set(size.x, 0)));
+        boundary.expandTo(this.screenToWorld(point.set(size.x, size.y)));
 
         this.cache.set(this.boundaryCache, boundary);
         return boundary;
@@ -53,7 +52,7 @@ export default class Camera {
     screenToWorld(point: Point) {
         return point
             .clone()
-            .sub(this.canvas.width / 2, this.canvas.height / 2)
+            .sub(this.screen.canvas.width / 2, this.screen.canvas.height / 2)
             .div(this.zoom, this.zoom)
             .addPoint(this.position);
     }
@@ -63,15 +62,17 @@ export default class Camera {
             .clone()
             .subPoint(this.position)
             .mul(this.zoom, this.zoom)
-            .add(this.canvas.width / 2, this.canvas.height / 2);
+            .add(this.screen.canvas.width / 2, this.screen.canvas.height / 2);
     }
 
-    run(callback = (context: CanvasRenderingContext2D) => {}) {
-        this.context.save();
-        this.context.translate(this.canvas.width / 2, this.canvas.height / 2);
-        this.context.scale(this.zoom, this.zoom);
-        this.context.translate(-this.position.x, -this.position.y);
-        callback(this.context);
-        this.context.restore();
+    run(callback = (screen: Screen) => {}) {
+        const context = this.screen.context;
+
+        context.save();
+        context.translate(this.screen.canvas.width / 2, this.screen.canvas.height / 2);
+        context.scale(this.zoom, this.zoom);
+        context.translate(-this.position.x, -this.position.y);
+        callback(this.screen);
+        context.restore();
     }
 }

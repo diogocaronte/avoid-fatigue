@@ -7,27 +7,49 @@ import Noise from '../utils/noise';
 import Sector from './sector';
 import UniverseDevStrategy, { UniverseGenerationStrategy } from './universe-dev-strategy';
 
-const DEFAULT_OPTIONS = {
-    sectorSize: 100,
-    cache: new Cache<any>(),
-    seed: 1,
-    strategy: new UniverseDevStrategy() as UniverseGenerationStrategy,
-} as const;
-
-export type UniverseOptions = typeof DEFAULT_OPTIONS;
-
 export default class Universe {
     readonly sectors: Grid<Sector>;
+    readonly cache: Cache<any>;
     readonly options: Readonly<UniverseOptions>;
     readonly random: Noise;
 
+    private SECTOR_VERSION = Symbol('sector Version');
     private strategy: UniverseGenerationStrategy;
 
     constructor(options: Partial<UniverseOptions> = {}) {
-        this.options = merge({}, DEFAULT_OPTIONS, options) as UniverseOptions;
+        this.options = merge({}, Universe.defaultOptions(), options) as UniverseOptions;
+        this.cache = this.options.cache;
         this.sectors = new Grid<Sector>();
         this.strategy = this.options.strategy;
         this.random = new Noise(this.options.seed);
+    }
+
+    static defaultOptions() {
+        return {
+            sectorSize: 100,
+            cache: new Cache<any>(),
+            seed: Math.random() * Math.pow(2, 32),
+            strategy: new UniverseDevStrategy() as UniverseGenerationStrategy,
+        };
+    }
+
+    public getClassifiedSectors(bound: Bound): ClassifiedSectors {
+        const cached = this.cache.get(bound);
+        if (cached) return cached.value;
+
+        const projectedInSector = this.getWorldToSectorBound(bound);
+        const inside = this.getSectorsOrCreateInBoundary(projectedInSector);
+
+        const version = this.cache.version;
+        inside.forEach((sectorEntry) => ((<any>sectorEntry[1])[this.SECTOR_VERSION] = version));
+
+        const allSectors = this.sectors.entries();
+        const outside = allSectors.filter((sectorEntry) => (<any>sectorEntry[1])[this.SECTOR_VERSION] != version);
+
+        const classified = { inside, outside };
+
+        this.cache.set(bound, classified);
+        return classified;
     }
 
     public getSectorsOrCreateInBoundary(boundary: Bound): [Point, Sector][] {
@@ -67,3 +89,10 @@ export default class Universe {
         return sector;
     }
 }
+
+export type UniverseOptions = ReturnType<typeof Universe.defaultOptions>;
+
+export type ClassifiedSectors = {
+    inside: [Point, Sector][];
+    outside: [Point, Sector][];
+};

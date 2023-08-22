@@ -1,6 +1,7 @@
+import { ICircle } from '../geometry/circle';
 import Point from '../geometry/point';
 
-export default class Planet {
+export default class Planet implements ICircle {
     position: Point;
     radius: number;
 

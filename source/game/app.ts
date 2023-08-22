@@ -1,143 +1,38 @@
 import merge from 'ts-deepmerge';
 import Point from '../geometry/point';
-import Rectangle from '../geometry/rectangle';
 import { ListenMouseReturn, clientPointToCanvas, listenMouse } from '../utils';
 import Cache from '../utils/cache';
+import BlankScene from './blank-scene';
 import Camera from './camera';
 import Screen from './screen';
-import Sector from './sector';
 import Timer, { interval } from './timer';
-import Universe from './universe';
 
-export const DEFAULT_OPTIONS = {};
-export const SECTOR_VERSION = Symbol('sector Version');
+export interface IScene {
+    readonly application: App;
+
+    initialize: () => void;
+    destroy: () => void;
+    update: () => void;
+    render: () => void;
+}
 
 export default class App {
-    events = {
-        destroy: new Set<CallableFunction>(),
-    };
+    readonly scene: IScene;
+    readonly mouse: ListenMouseReturn;
+    readonly cache: Cache<any>;
+    readonly screen: Screen;
+    readonly options: Readonly<AppOptions>;
+    readonly timer: Timer;
 
-    universe: Universe;
-    camera: Camera;
-    screen: Screen;
-    mouseRectangle: Rectangle;
-    cache: Cache<any>;
-
-    mouseProjectedCache = Symbol('mouseProjected');
-    classifiedSectorCache = Symbol('classified sector');
-
-    private mouse: ListenMouseReturn | null = null;
-    private initialized: boolean = false;
-    private destroyed: boolean = false;
     private requestID: number = -1;
 
-    private options: AppOptions;
-    private timer: Timer;
-    private rememberCamera: Point | null = null;
-
     constructor(options: Partial<AppOptions> = {}) {
-        this.options = merge({}, DEFAULT_OPTIONS, options) as AppOptions;
-
+        this.options = merge({}, App.defaultOptions(), options) as AppOptions;
+        this.timer = new Timer();
+        this.scene = new BlankScene(this);
         this.cache = new Cache();
         this.screen = new Screen();
-
-        this.camera = new Camera({
-            cache: this.cache,
-            screen: this.screen,
-        });
-
-        this.universe = new Universe({
-            cache: this.cache,
-        });
-
-        this.timer = new Timer();
-
-        this.mouseRectangle = new Rectangle(new Point(0, 0), new Point(10, 10));
-    }
-
-    private getMouseProjected(): MouseProjected {
-        const cached = this.cache.get(this.mouseProjectedCache);
-        if (cached) return cached.value;
-
-        const mouse = this.mouse as ListenMouseReturn;
-
-        const inCanvas = clientPointToCanvas(mouse.now, this.screen.canvas);
-        const inWorld = this.camera.screenToWorld(inCanvas);
-        const projected = { inCanvas, inWorld };
-
-        this.cache.set(this.mouseProjectedCache, projected);
-        return projected;
-    }
-
-    private getClassifiedSectors(): ClassifiedSectors {
-        const cached = this.cache.get(this.classifiedSectorCache);
-        if (cached) return cached.value;
-
-        const cameraBoundary = this.camera.getBoundary();
-        const cameraInSectorBoundary = this.universe.getWorldToSectorBound(cameraBoundary);
-        const insideView = this.universe.getSectorsOrCreateInBoundary(cameraInSectorBoundary);
-
-        const version = this.cache.version;
-        insideView.forEach((sectorEntry) => ((<any>sectorEntry[1])[SECTOR_VERSION] = version));
-
-        const allSectors = this.universe.sectors.entries();
-        const outsideView = allSectors.filter((sectorEntry) => (<any>sectorEntry[1])[SECTOR_VERSION] != version);
-
-        const classified = { insideView, outsideView };
-
-        this.cache.set(this.classifiedSectorCache, classified);
-        return classified;
-    }
-
-    private render() {
-        this.screen.clear();
-
-        const classified = this.getClassifiedSectors();
-
-        this.camera.run((context) => {
-            classified.insideView.forEach(([_, sector]) => {
-                this.screen.renderBound(sector.bound, sector.color);
-            });
-
-            this.screen.renderRect(this.mouseRectangle, 'red');
-        });
-    }
-
-    private update() {
-        this.cache.invalidate();
-
-        const canvas = this.screen.canvas;
-        const { clientWidth, clientHeight } = canvas;
-
-        if (clientWidth != canvas.width || clientHeight != canvas.height) this.screen.resize(new Point(clientWidth, clientHeight));
-
-        const projectedMouse = this.getMouseProjected();
-        this.mouseRectangle.position.copy(projectedMouse.inWorld);
-
-        const mouse = this.mouse as ListenMouseReturn;
-        if (mouse.isDown()) {
-            if (this.rememberCamera == null) this.rememberCamera = this.camera.position.clone();
-
-            const rotated = mouse.delta.clone().negate();
-            this.camera.position.copy(this.rememberCamera).addPoint(rotated);
-        } else {
-            this.rememberCamera = null;
-        }
-
-        const classified = this.getClassifiedSectors();
-        classified.outsideView.forEach((sectorEntry) => this.universe.sectors.delete(sectorEntry[0]));
-    }
-
-    public initialize() {
-        if (this.initialized) return;
-
-        this.initialized = true;
-
         this.mouse = listenMouse(this.screen.canvas);
-
-        const frame_rate = 1000 / 120;
-        const { execute } = interval(this.timer, this.update.bind(this), frame_rate);
-        this.timer.schedule(execute, 0);
 
         const loop = () => {
             this.render();
@@ -146,17 +41,56 @@ export default class App {
 
         this.timer.schedule(loop, 0);
 
+        const { execute } = interval(this.timer, this.update.bind(this), this.options.frameRate);
+        this.timer.schedule(execute, 0);
+
         this.timer.play();
     }
 
-    public destroy() {
-        if (!this.initialized) return;
+    static defaultOptions() {
+        return {
+            frameRate: 1000 / 60,
+        };
+    }
 
-        this.destroyed = true;
+    changeScene(scene: IScene) {
+        this.scene.destroy();
+        //@ts-ignore
+        this.scene = scene;
+        scene.initialize();
+    }
+
+    public getMouseProjected(camera: Camera): MouseProjected {
+        const cached = this.cache.get(camera);
+        if (cached) return cached.value;
 
         const mouse = this.mouse as ListenMouseReturn;
-        mouse.unlisten();
 
+        const inCanvas = clientPointToCanvas(mouse.now, this.screen.canvas);
+        const inWorld = camera.screenToWorld(inCanvas);
+        const projected = { inCanvas, inWorld };
+
+        this.cache.set(camera, projected);
+        return projected;
+    }
+
+    public render() {
+        const canvas = this.screen.canvas;
+        const { clientWidth, clientHeight } = canvas;
+
+        if (clientWidth != canvas.width || clientHeight != canvas.height) this.screen.resize(new Point(clientWidth, clientHeight));
+
+        this.scene.render();
+    }
+
+    public update() {
+        this.cache.invalidate();
+        this.scene.update();
+    }
+
+    public destroy() {
+        this.mouse.unlisten();
+        this.timer.stop();
         cancelAnimationFrame(this.requestID);
     }
 }
@@ -166,9 +100,4 @@ export type MouseProjected = {
     inWorld: Point;
 };
 
-export type ClassifiedSectors = {
-    insideView: [Point, Sector][];
-    outsideView: [Point, Sector][];
-};
-
-export type AppOptions = typeof DEFAULT_OPTIONS;
+export type AppOptions = ReturnType<typeof App.defaultOptions>;

@@ -21,6 +21,7 @@ export default class DevScene implements IScene {
         });
         this.universe = new Universe({
             cache: this.application.cache,
+            seed: 321,
         });
         this.mouseRectangle = new Rectangle(new Point(0, 0), new Point(10, 10));
     }
